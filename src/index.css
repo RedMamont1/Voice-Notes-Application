@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  @apply h-full overflow-x-hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+body {
+  @apply bg-gray-100;
+  position: fixed;
+  width: 100%;
+}
+
+/* Larger touch targets for mobile */
+button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Remove audio player default styling */
+audio {
+  @apply w-full;
+  height: 40px;
+}
+
+/* Prevent text selection during touch */
+* {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection in input areas */
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
