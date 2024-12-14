@@ -1,149 +1,57 @@
-import React, { useState } from 'react'
-import { FaTimes, FaCheck, FaTag } from 'react-icons/fa'
+import React, { useState, useEffect } from 'react'
+import NotesHistory from './components/NotesHistory'
+import KnowledgeBase from './components/KnowledgeBase'
+import { FaHistory, FaBook } from 'react-icons/fa'
 
-const AVAILABLE_TAGS = ['crypto', 'ai', 'life', 'nothing', 'work', 'idea', 'todo']
+export default function App() {
+  const [activeTab, setActiveTab] = useState('history')
+  const [isLoading, setIsLoading] = useState(true)
 
-export default function RecordingSummary({ onSave, onCancel, transcript }) {
-  const [name, setName] = useState('')
-  const [summary, setSummary] = useState('')
-  const [selectedTags, setSelectedTags] = useState([])
-  const [bulletPoints, setBulletPoints] = useState([''])
+  useEffect(() => {
+    // Simulate checking if the app is ready
+    const timer = setTimeout(() => {
+      setIsLoading(false)
+    }, 500)
 
-  const handleAddBulletPoint = () => {
-    setBulletPoints([...bulletPoints, ''])
-  }
+    return () => clearTimeout(timer)
+  }, [])
 
-  const handleBulletPointChange = (index, value) => {
-    const newBulletPoints = [...bulletPoints]
-    newBulletPoints[index] = value
-    setBulletPoints(newBulletPoints)
-  }
-
-  const handleRemoveBulletPoint = (index) => {
-    if (bulletPoints.length > 1) {
-      const newBulletPoints = bulletPoints.filter((_, i) => i !== index)
-      setBulletPoints(newBulletPoints)
-    }
-  }
-
-  const toggleTag = (tag) => {
-    if (selectedTags.includes(tag)) {
-      setSelectedTags(selectedTags.filter(t => t !== tag))
-    } else {
-      setSelectedTags([...selectedTags, tag])
-    }
-  }
-
-  const handleSave = () => {
-    const filteredBulletPoints = bulletPoints.filter(point => point.trim() !== '')
-    onSave({
-      name: name.trim() || 'Untitled Recording',
-      summary: summary.trim(),
-      bulletPoints: filteredBulletPoints,
-      tags: selectedTags
-    })
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">Recording Summary</h2>
-        
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1">Recording Name *</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Enter recording name"
-            className="w-full p-2 border rounded"
-            required
-          />
-        </div>
-
-        {transcript && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">Transcript</label>
-            <div className="p-2 bg-gray-50 rounded text-sm max-h-32 overflow-y-auto">
-              {transcript}
-            </div>
-          </div>
-        )}
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1">Brief Summary</label>
-          <textarea
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            placeholder="Enter a brief summary"
-            className="w-full p-2 border rounded"
-            rows="2"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">Key Points</label>
-          {bulletPoints.map((point, index) => (
-            <div key={index} className="flex mb-2">
-              <input
-                type="text"
-                value={point}
-                onChange={(e) => handleBulletPointChange(index, e.target.value)}
-                placeholder="Enter key point"
-                className="flex-1 p-2 border rounded-l"
-              />
-              <button
-                onClick={() => handleRemoveBulletPoint(index)}
-                className="px-3 bg-red-500 text-white rounded-r hover:bg-red-600"
-                disabled={bulletPoints.length === 1}
-              >
-                <FaTimes />
-              </button>
-            </div>
-          ))}
-          <button
-            onClick={handleAddBulletPoint}
-            className="text-blue-500 text-sm hover:text-blue-600"
-          >
-            + Add bullet point
-          </button>
-        </div>
-
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2">Tags</label>
-          <div className="flex flex-wrap gap-2">
-            {AVAILABLE_TAGS.map(tag => (
-              <button
-                key={tag}
-                onClick={() => toggleTag(tag)}
-                className={`px-3 py-1 rounded-full text-sm flex items-center ${
-                  selectedTags.includes(tag)
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-200 text-gray-700'
-                }`}
-              >
-                <FaTag className="mr-1" /> {tag}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            disabled={!name.trim()}
-          >
-            Save
-          </button>
-        </div>
+    <div className="max-w-md mx-auto p-4 min-h-screen bg-white">
+      <h1 className="text-2xl font-bold text-center mb-6">Voice Notes</h1>
+      
+      <div className="flex justify-around mb-6">
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`flex items-center px-4 py-2 rounded ${
+            activeTab === 'history' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+          }`}
+        >
+          <FaHistory className="mr-2" /> History
+        </button>
+        <button
+          onClick={() => setActiveTab('knowledge')}
+          className={`flex items-center px-4 py-2 rounded ${
+            activeTab === 'knowledge' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+          }`}
+        >
+          <FaBook className="mr-2" /> Knowledge Base
+        </button>
       </div>
+
+      {activeTab === 'history' && <NotesHistory />}
+      {activeTab === 'knowledge' && <KnowledgeBase />}
     </div>
   )
 }
