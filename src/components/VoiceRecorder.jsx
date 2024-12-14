@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { FaMicrophone, FaStop } from 'react-icons/fa'
+import { FaMicrophone, FaStop, FaTrash, FaFileAlt } from 'react-icons/fa'
 import { format } from 'date-fns'
 
 export default function VoiceRecorder() {
@@ -8,6 +8,7 @@ export default function VoiceRecorder() {
   const [recordings, setRecordings] = useState([])
   const [error, setError] = useState(null)
   const [permissionGranted, setPermissionGranted] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
 
   useEffect(() => {
     const savedRecordings = localStorage.getItem('recordings')
@@ -15,6 +16,54 @@ export default function VoiceRecorder() {
       setRecordings(JSON.parse(savedRecordings))
     }
   }, [])
+
+  const deleteRecording = (id) => {
+    const updatedRecordings = recordings.filter(rec => rec.id !== id)
+    setRecordings(updatedRecordings)
+    localStorage.setItem('recordings', JSON.stringify(updatedRecordings))
+  }
+
+  const transcribeAudio = async (recording) => {
+    if (!recording || recording.transcript) return;
+    
+    try {
+      setIsTranscribing(true)
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)()
+      recognition.lang = 'en-US'
+      recognition.continuous = true
+
+      recognition.onresult = (event) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join(' ')
+
+        const updatedRecordings = recordings.map(rec => {
+          if (rec.id === recording.id) {
+            return { ...rec, transcript }
+          }
+          return rec
+        })
+        setRecordings(updatedRecordings)
+        localStorage.setItem('recordings', JSON.stringify(updatedRecordings))
+      }
+
+      recognition.onerror = (event) => {
+        console.error('Transcription error:', event.error)
+        setError('Could not transcribe audio. Please try again.')
+      }
+
+      recognition.onend = () => {
+        setIsTranscribing(false)
+      }
+
+      // Start recognition
+      recognition.start()
+    } catch (err) {
+      console.error('Transcription error:', err)
+      setError('Speech recognition is not supported in this browser.')
+      setIsTranscribing(false)
+    }
+  }
 
   const requestPermission = async () => {
     try {
@@ -33,7 +82,6 @@ export default function VoiceRecorder() {
     try {
       setError(null)
 
-      // First request permission if not granted
       if (!permissionGranted) {
         await requestPermission()
       }
@@ -46,7 +94,6 @@ export default function VoiceRecorder() {
         }
       })
 
-      // Try different MIME types for iOS compatibility
       let mimeType = 'audio/webm'
       let options = {}
 
@@ -160,17 +207,34 @@ export default function VoiceRecorder() {
               <span className="text-sm text-gray-500">
                 {format(new Date(recording.date), 'MMM d, yyyy h:mm a')}
               </span>
-              <span className="text-xs font-medium px-2 py-1 bg-blue-100 text-blue-600 rounded-full">
-                {recording.category}
-              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => transcribeAudio(recording)}
+                  className="text-blue-500 hover:text-blue-600 p-1"
+                  disabled={isTranscribing}
+                >
+                  <FaFileAlt size={16} />
+                </button>
+                <button
+                  onClick={() => deleteRecording(recording.id)}
+                  className="text-red-500 hover:text-red-600 p-1"
+                >
+                  <FaTrash size={16} />
+                </button>
+              </div>
             </div>
             <audio 
               controls 
-              className="w-full" 
+              className="w-full mb-2" 
               src={recording.url}
               preload="metadata"
               playsInline
             />
+            {recording.transcript && (
+              <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
+                {recording.transcript}
+              </div>
+            )}
           </div>
         ))}
 
