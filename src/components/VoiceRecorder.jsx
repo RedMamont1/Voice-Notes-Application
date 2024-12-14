@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { FaMicrophone, FaStop, FaTrash } from 'react-icons/fa'
 import { format } from 'date-fns'
 
@@ -8,8 +8,9 @@ export default function VoiceRecorder() {
   const [recordings, setRecordings] = useState([])
   const [error, setError] = useState(null)
   const [permissionGranted, setPermissionGranted] = useState(false)
-  const [currentRecordingId, setCurrentRecordingId] = useState(null)
-  const [transcripts, setTranscripts] = useState({})
+  const [currentTranscript, setCurrentTranscript] = useState('')
+  const recognitionRef = useRef(null)
+  const finalTranscriptRef = useRef('')
 
   useEffect(() => {
     const savedRecordings = localStorage.getItem('recordings')
@@ -18,7 +19,7 @@ export default function VoiceRecorder() {
     }
   }, [])
 
-  const startSpeechRecognition = (recordingId) => {
+  const initSpeechRecognition = () => {
     if (window.SpeechRecognition || window.webkitSpeechRecognition) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
       const recognition = new SpeechRecognition()
@@ -31,17 +32,14 @@ export default function VoiceRecorder() {
         for (let i = 0; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript
         }
-        setTranscripts(prev => ({
-          ...prev,
-          [recordingId]: transcript
-        }))
+        setCurrentTranscript(transcript)
+        finalTranscriptRef.current = transcript // Save to ref for persistence
       }
 
       recognition.onerror = (event) => {
         console.error('Speech recognition error:', event.error)
       }
 
-      recognition.start()
       return recognition
     }
     return null
@@ -63,9 +61,8 @@ export default function VoiceRecorder() {
   const startRecording = async () => {
     try {
       setError(null)
-      const recordingId = Date.now()
-      setCurrentRecordingId(recordingId)
-      setTranscripts(prev => ({ ...prev, [recordingId]: '' }))
+      setCurrentTranscript('')
+      finalTranscriptRef.current = ''
 
       if (!permissionGranted) {
         await requestPermission()
@@ -89,7 +86,6 @@ export default function VoiceRecorder() {
       })
 
       let chunks = []
-      let recognition = null
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -103,27 +99,17 @@ export default function VoiceRecorder() {
           const url = URL.createObjectURL(audioBlob)
           
           const newRecording = {
-            id: recordingId,
+            id: Date.now(),
             url,
             date: new Date().toISOString(),
             category: 'voice-memo',
             type: mimeType,
-            transcript: transcripts[recordingId] || 'No transcript available'
+            transcript: finalTranscriptRef.current // Use the ref value
           }
           
           const updatedRecordings = [newRecording, ...recordings]
           setRecordings(updatedRecordings)
           localStorage.setItem('recordings', JSON.stringify(updatedRecordings))
-          
-          // Cleanup
-          if (recognition) {
-            recognition.stop()
-          }
-          setTranscripts(prev => {
-            const newTranscripts = { ...prev }
-            delete newTranscripts[recordingId]
-            return newTranscripts
-          })
         } catch (err) {
           console.error('Processing error:', err)
           setError('Error saving recording. Please try again.')
@@ -136,7 +122,11 @@ export default function VoiceRecorder() {
       setIsRecording(true)
 
       // Start speech recognition
-      recognition = startSpeechRecognition(recordingId)
+      const recognition = initSpeechRecognition()
+      if (recognition) {
+        recognitionRef.current = recognition
+        recognition.start()
+      }
     } catch (err) {
       console.error('Recording error:', err)
       setError('Could not start recording. Please check your microphone.')
@@ -146,11 +136,17 @@ export default function VoiceRecorder() {
 
   const stopRecording = () => {
     if (mediaRecorder && isRecording) {
+      // Stop recognition first
+      if (recognitionRef.current) {
+        recognitionRef.current.stop()
+        recognitionRef.current = null
+      }
+
+      // Then stop recording
       mediaRecorder.stop()
       mediaRecorder.stream.getTracks().forEach(track => track.stop())
       setIsRecording(false)
       setMediaRecorder(null)
-      setCurrentRecordingId(null)
     }
   }
 
@@ -176,10 +172,10 @@ export default function VoiceRecorder() {
         </div>
       )}
 
-      {isRecording && currentRecordingId && transcripts[currentRecordingId] && (
+      {isRecording && currentTranscript && (
         <div className="bg-blue-50 p-4 rounded-lg mb-4">
           <div className="text-sm text-blue-600">Current transcript:</div>
-          <div className="mt-1">{transcripts[currentRecordingId]}</div>
+          <div className="mt-1">{currentTranscript}</div>
         </div>
       )}
 
@@ -221,7 +217,7 @@ export default function VoiceRecorder() {
                 <FaTrash size={16} />
               </button>
             </div>
-            {recording.transcript && recording.transcript !== 'No transcript available' && (
+            {recording.transcript && (
               <div className="mb-3 p-3 bg-gray-50 rounded-lg text-sm">
                 {recording.transcript}
               </div>
