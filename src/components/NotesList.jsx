@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { FaSave, FaTrash } from 'react-icons/fa'
+import { format } from 'date-fns'
 
 export default function NotesList() {
   const [notes, setNotes] = useState([])
@@ -56,7 +57,7 @@ export default function NotesList() {
           <div key={note.id} className="border p-4 rounded-lg">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-gray-500">
-                {new Date(note.date).toLocaleDateString()}
+                {format(new Date(note.date), 'MMM d, yyyy h:mm a')}
               </span>
               <button
                 onClick={() => deleteNote(note.id)}
