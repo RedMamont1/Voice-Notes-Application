@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { FaMicrophone, FaStop, FaTrash, FaFileAlt } from 'react-icons/fa'
+import { FaMicrophone, FaStop, FaTrash } from 'react-icons/fa'
 import { format } from 'date-fns'
 
 export default function VoiceRecorder() {
@@ -32,54 +32,52 @@ export default function VoiceRecorder() {
     localStorage.setItem('recordings', JSON.stringify(updatedRecordings))
   }
 
-  const transcribeAudio = async (recording) => {
-    if (!recording || recording.transcript) return;
-    
+  const transcribeAudio = async (audioBlob) => {
     try {
       setIsTranscribing(true)
       const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)()
       recognition.lang = 'en-US'
-      recognition.continuous = false
+      recognition.continuous = true
       recognition.interimResults = false
 
-      let transcript = ''
+      return new Promise((resolve, reject) => {
+        let transcript = ''
 
-      recognition.onresult = (event) => {
-        transcript = event.results[0][0].transcript
-      }
-
-      recognition.onerror = (event) => {
-        console.error('Transcription error:', event.error)
-        setError('Could not transcribe audio. Please try again.')
-        setIsTranscribing(false)
-      }
-
-      recognition.onend = () => {
-        if (transcript) {
-          const updatedRecordings = recordings.map(rec => {
-            if (rec.id === recording.id) {
-              return { ...rec, transcript }
-            }
-            return rec
-          })
-          setRecordings(updatedRecordings)
-          localStorage.setItem('recordings', JSON.stringify(updatedRecordings))
+        recognition.onresult = (event) => {
+          const current = event.resultIndex
+          transcript += event.results[current][0].transcript
         }
-        setIsTranscribing(false)
-      }
 
-      // Play the audio for transcription
-      const audio = new Audio(recording.url)
-      audio.play()
-      recognition.start()
+        recognition.onerror = (event) => {
+          console.error('Transcription error:', event.error)
+          reject(event.error)
+        }
 
-      audio.onended = () => {
-        recognition.stop()
-        audio.remove()
-      }
+        recognition.onend = () => {
+          resolve(transcript)
+        }
+
+        // Convert blob to audio element and play
+        const audioUrl = URL.createObjectURL(audioBlob)
+        const audio = new Audio(audioUrl)
+        
+        audio.onended = () => {
+          recognition.stop()
+          URL.revokeObjectURL(audioUrl)
+        }
+
+        audio.onerror = (e) => {
+          reject('Audio playback error')
+          URL.revokeObjectURL(audioUrl)
+        }
+
+        recognition.start()
+        audio.play()
+      })
     } catch (err) {
-      console.error('Transcription error:', err)
-      setError('Speech recognition is not supported in this browser.')
+      console.error('Transcription setup error:', err)
+      throw err
+    } finally {
       setIsTranscribing(false)
     }
   }
@@ -136,16 +134,26 @@ export default function VoiceRecorder() {
         }
       }
 
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         try {
-          const blob = new Blob(chunks, { type: mimeType })
-          const url = URL.createObjectURL(blob)
+          const audioBlob = new Blob(chunks, { type: mimeType })
+          const url = URL.createObjectURL(audioBlob)
+          
+          // Try to transcribe the audio
+          let transcript = ''
+          try {
+            transcript = await transcribeAudio(audioBlob)
+          } catch (err) {
+            console.error('Transcription failed:', err)
+          }
+
           const newRecording = {
             id: Date.now(),
             url,
             date: new Date().toISOString(),
             category: 'voice-memo',
-            type: mimeType
+            type: mimeType,
+            transcript: transcript || 'Transcription failed. Play audio to hear the recording.'
           }
           
           const updatedRecordings = [newRecording, ...recordings]
@@ -224,38 +232,25 @@ export default function VoiceRecorder() {
               <span className="text-sm text-gray-500">
                 {format(new Date(recording.date), 'MMM d, yyyy h:mm a')}
               </span>
-              <div className="flex gap-2">
-                {!recording.transcript && (
-                  <button
-                    onClick={() => transcribeAudio(recording)}
-                    className={`text-blue-500 hover:text-blue-600 p-1 ${
-                      isTranscribing ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    disabled={isTranscribing}
-                  >
-                    <FaFileAlt size={16} />
-                  </button>
-                )}
-                <button
-                  onClick={() => deleteRecording(recording.id)}
-                  className="text-red-500 hover:text-red-600 p-1"
-                >
-                  <FaTrash size={16} />
-                </button>
-              </div>
+              <button
+                onClick={() => deleteRecording(recording.id)}
+                className="text-red-500 hover:text-red-600 p-1"
+              >
+                <FaTrash size={16} />
+              </button>
             </div>
+            {recording.transcript && (
+              <div className="mb-3 p-3 bg-gray-50 rounded-lg text-sm">
+                {recording.transcript}
+              </div>
+            )}
             <audio 
               controls 
-              className="w-full mb-2" 
+              className="w-full" 
               src={recording.url}
               preload="metadata"
               playsInline
             />
-            {recording.transcript && (
-              <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
-                {recording.transcript}
-              </div>
-            )}
           </div>
         ))}
 
