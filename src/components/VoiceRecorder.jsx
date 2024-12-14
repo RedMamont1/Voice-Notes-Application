@@ -8,8 +8,8 @@ export default function VoiceRecorder() {
   const [recordings, setRecordings] = useState([])
   const [error, setError] = useState(null)
   const [permissionGranted, setPermissionGranted] = useState(false)
-  const [currentTranscript, setCurrentTranscript] = useState('')
-  const [recognition, setRecognition] = useState(null)
+  const [currentRecordingId, setCurrentRecordingId] = useState(null)
+  const [transcripts, setTranscripts] = useState({})
 
   useEffect(() => {
     const savedRecordings = localStorage.getItem('recordings')
@@ -18,27 +18,31 @@ export default function VoiceRecorder() {
     }
   }, [])
 
-  const initializeRecognition = () => {
+  const startSpeechRecognition = (recordingId) => {
     if (window.SpeechRecognition || window.webkitSpeechRecognition) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-      const newRecognition = new SpeechRecognition()
-      newRecognition.continuous = true
-      newRecognition.interimResults = true
-      newRecognition.lang = 'en-US'
+      const recognition = new SpeechRecognition()
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.lang = 'en-US'
 
-      newRecognition.onresult = (event) => {
+      recognition.onresult = (event) => {
         let transcript = ''
         for (let i = 0; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript
         }
-        setCurrentTranscript(transcript)
+        setTranscripts(prev => ({
+          ...prev,
+          [recordingId]: transcript
+        }))
       }
 
-      newRecognition.onerror = (event) => {
+      recognition.onerror = (event) => {
         console.error('Speech recognition error:', event.error)
       }
 
-      return newRecognition
+      recognition.start()
+      return recognition
     }
     return null
   }
@@ -59,7 +63,9 @@ export default function VoiceRecorder() {
   const startRecording = async () => {
     try {
       setError(null)
-      setCurrentTranscript('')
+      const recordingId = Date.now()
+      setCurrentRecordingId(recordingId)
+      setTranscripts(prev => ({ ...prev, [recordingId]: '' }))
 
       if (!permissionGranted) {
         await requestPermission()
@@ -83,6 +89,7 @@ export default function VoiceRecorder() {
       })
 
       let chunks = []
+      let recognition = null
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -95,24 +102,28 @@ export default function VoiceRecorder() {
           const audioBlob = new Blob(chunks, { type: mimeType })
           const url = URL.createObjectURL(audioBlob)
           
-          // Save the current transcript before clearing it
-          const finalTranscript = currentTranscript
-          
           const newRecording = {
-            id: Date.now(),
+            id: recordingId,
             url,
             date: new Date().toISOString(),
             category: 'voice-memo',
             type: mimeType,
-            transcript: finalTranscript || 'No transcript available'
+            transcript: transcripts[recordingId] || 'No transcript available'
           }
           
           const updatedRecordings = [newRecording, ...recordings]
           setRecordings(updatedRecordings)
           localStorage.setItem('recordings', JSON.stringify(updatedRecordings))
           
-          // Clear the current transcript after saving
-          setCurrentTranscript('')
+          // Cleanup
+          if (recognition) {
+            recognition.stop()
+          }
+          setTranscripts(prev => {
+            const newTranscripts = { ...prev }
+            delete newTranscripts[recordingId]
+            return newTranscripts
+          })
         } catch (err) {
           console.error('Processing error:', err)
           setError('Error saving recording. Please try again.')
@@ -124,12 +135,8 @@ export default function VoiceRecorder() {
       setMediaRecorder(recorder)
       setIsRecording(true)
 
-      // Create new recognition instance for each recording
-      const newRecognition = initializeRecognition()
-      if (newRecognition) {
-        setRecognition(newRecognition)
-        newRecognition.start()
-      }
+      // Start speech recognition
+      recognition = startSpeechRecognition(recordingId)
     } catch (err) {
       console.error('Recording error:', err)
       setError('Could not start recording. Please check your microphone.')
@@ -139,18 +146,18 @@ export default function VoiceRecorder() {
 
   const stopRecording = () => {
     if (mediaRecorder && isRecording) {
-      // Stop recognition first to ensure we have the final transcript
-      if (recognition) {
-        recognition.stop()
-        setRecognition(null)
-      }
-
-      // Then stop media recorder
       mediaRecorder.stop()
       mediaRecorder.stream.getTracks().forEach(track => track.stop())
       setIsRecording(false)
       setMediaRecorder(null)
+      setCurrentRecordingId(null)
     }
+  }
+
+  const deleteRecording = (id) => {
+    const updatedRecordings = recordings.filter(rec => rec.id !== id)
+    setRecordings(updatedRecordings)
+    localStorage.setItem('recordings', JSON.stringify(updatedRecordings))
   }
 
   return (
@@ -169,10 +176,10 @@ export default function VoiceRecorder() {
         </div>
       )}
 
-      {isRecording && currentTranscript && (
+      {isRecording && currentRecordingId && transcripts[currentRecordingId] && (
         <div className="bg-blue-50 p-4 rounded-lg mb-4">
           <div className="text-sm text-blue-600">Current transcript:</div>
-          <div className="mt-1">{currentTranscript}</div>
+          <div className="mt-1">{transcripts[currentRecordingId]}</div>
         </div>
       )}
 
