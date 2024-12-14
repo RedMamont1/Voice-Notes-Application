@@ -8,7 +8,6 @@ export default function VoiceRecorder() {
   const [recordings, setRecordings] = useState([])
   const [error, setError] = useState(null)
   const [permissionGranted, setPermissionGranted] = useState(false)
-  const [isTranscribing, setIsTranscribing] = useState(false)
 
   useEffect(() => {
     const savedRecordings = localStorage.getItem('recordings')
@@ -18,7 +17,6 @@ export default function VoiceRecorder() {
   }, [])
 
   useEffect(() => {
-    // Cleanup function to ensure microphone is released
     return () => {
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.stream.getTracks().forEach(track => track.stop())
@@ -30,56 +28,6 @@ export default function VoiceRecorder() {
     const updatedRecordings = recordings.filter(rec => rec.id !== id)
     setRecordings(updatedRecordings)
     localStorage.setItem('recordings', JSON.stringify(updatedRecordings))
-  }
-
-  const transcribeAudio = async (audioBlob) => {
-    try {
-      setIsTranscribing(true)
-      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)()
-      recognition.lang = 'en-US'
-      recognition.continuous = true
-      recognition.interimResults = false
-
-      return new Promise((resolve, reject) => {
-        let transcript = ''
-
-        recognition.onresult = (event) => {
-          const current = event.resultIndex
-          transcript += event.results[current][0].transcript
-        }
-
-        recognition.onerror = (event) => {
-          console.error('Transcription error:', event.error)
-          reject(event.error)
-        }
-
-        recognition.onend = () => {
-          resolve(transcript)
-        }
-
-        // Convert blob to audio element and play
-        const audioUrl = URL.createObjectURL(audioBlob)
-        const audio = new Audio(audioUrl)
-        
-        audio.onended = () => {
-          recognition.stop()
-          URL.revokeObjectURL(audioUrl)
-        }
-
-        audio.onerror = (e) => {
-          reject('Audio playback error')
-          URL.revokeObjectURL(audioUrl)
-        }
-
-        recognition.start()
-        audio.play()
-      })
-    } catch (err) {
-      console.error('Transcription setup error:', err)
-      throw err
-    } finally {
-      setIsTranscribing(false)
-    }
   }
 
   const requestPermission = async () => {
@@ -111,21 +59,16 @@ export default function VoiceRecorder() {
         }
       })
 
-      let mimeType = 'audio/webm'
-      let options = {}
+      // For iOS compatibility
+      const mimeType = MediaRecorder.isTypeSupported('audio/mp4') 
+        ? 'audio/mp4' 
+        : 'audio/webm;codecs=opus'
 
-      if (MediaRecorder.isTypeSupported('audio/mp4')) {
-        mimeType = 'audio/mp4'
-      } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-        mimeType = 'audio/webm;codecs=opus'
-      }
-
-      options = {
+      const recorder = new MediaRecorder(stream, {
         mimeType,
         audioBitsPerSecond: 128000
-      }
+      })
 
-      const recorder = new MediaRecorder(stream, options)
       let chunks = []
 
       recorder.ondataavailable = (e) => {
@@ -134,31 +77,47 @@ export default function VoiceRecorder() {
         }
       }
 
-      recorder.onstop = async () => {
+      recorder.onstop = () => {
         try {
           const audioBlob = new Blob(chunks, { type: mimeType })
           const url = URL.createObjectURL(audioBlob)
           
-          // Try to transcribe the audio
-          let transcript = ''
-          try {
-            transcript = await transcribeAudio(audioBlob)
-          } catch (err) {
-            console.error('Transcription failed:', err)
-          }
-
           const newRecording = {
             id: Date.now(),
             url,
             date: new Date().toISOString(),
             category: 'voice-memo',
-            type: mimeType,
-            transcript: transcript || 'Transcription failed. Play audio to hear the recording.'
+            type: mimeType
           }
           
           const updatedRecordings = [newRecording, ...recordings]
           setRecordings(updatedRecordings)
           localStorage.setItem('recordings', JSON.stringify(updatedRecordings))
+          
+          // Start speech recognition
+          if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+            const recognition = new SpeechRecognition()
+            recognition.lang = 'en-US'
+            recognition.continuous = true
+            
+            recognition.onresult = (event) => {
+              const transcript = Array.from(event.results)
+                .map(result => result[0].transcript)
+                .join(' ')
+              
+              const recordingsWithTranscript = recordings.map(rec => {
+                if (rec.id === newRecording.id) {
+                  return { ...rec, transcript }
+                }
+                return rec
+              })
+              setRecordings(recordingsWithTranscript)
+              localStorage.setItem('recordings', JSON.stringify(recordingsWithTranscript))
+            }
+            
+            recognition.start()
+          }
         } catch (err) {
           console.error('Processing error:', err)
           setError('Error saving recording. Please try again.')
