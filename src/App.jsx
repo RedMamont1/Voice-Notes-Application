@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import VoiceRecorder from './components/VoiceRecorder'
 import NotesList from './components/NotesList'
-import { FaMicrophone, FaEdit } from 'react-icons/fa'
+import KnowledgeBase from './components/KnowledgeBase'
+import { FaMicrophone, FaEdit, FaBook } from 'react-icons/fa'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('voice')
@@ -17,7 +18,15 @@ export default function App() {
             activeTab === 'voice' ? 'bg-blue-500 text-white' : 'bg-gray-200'
           }`}
         >
-          <FaMicrophone className="mr-2" /> Voice
+          <FaMicrophone className="mr-2" /> History
+        </button>
+        <button
+          onClick={() => setActiveTab('knowledge')}
+          className={`flex items-center px-4 py-2 rounded ${
+            activeTab === 'knowledge' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+          }`}
+        >
+          <FaBook className="mr-2" /> Knowledge Base
         </button>
         <button
           onClick={() => setActiveTab('notes')}
@@ -29,7 +38,9 @@ export default function App() {
         </button>
       </div>
 
-      {activeTab === 'voice' ? <VoiceRecorder /> : <NotesList />}
+      {activeTab === 'voice' && <VoiceRecorder />}
+      {activeTab === 'knowledge' && <KnowledgeBase />}
+      {activeTab === 'notes' && <NotesList />}
     </div>
   )
 }
