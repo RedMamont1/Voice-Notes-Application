@@ -17,6 +17,15 @@ export default function VoiceRecorder() {
     }
   }, [])
 
+  useEffect(() => {
+    // Cleanup function to ensure microphone is released
+    return () => {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stream.getTracks().forEach(track => track.stop())
+      }
+    }
+  }, [mediaRecorder])
+
   const deleteRecording = (id) => {
     const updatedRecordings = recordings.filter(rec => rec.id !== id)
     setRecordings(updatedRecordings)
@@ -30,34 +39,44 @@ export default function VoiceRecorder() {
       setIsTranscribing(true)
       const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)()
       recognition.lang = 'en-US'
-      recognition.continuous = true
+      recognition.continuous = false
+      recognition.interimResults = false
+
+      let transcript = ''
 
       recognition.onresult = (event) => {
-        const transcript = Array.from(event.results)
-          .map(result => result[0].transcript)
-          .join(' ')
-
-        const updatedRecordings = recordings.map(rec => {
-          if (rec.id === recording.id) {
-            return { ...rec, transcript }
-          }
-          return rec
-        })
-        setRecordings(updatedRecordings)
-        localStorage.setItem('recordings', JSON.stringify(updatedRecordings))
+        transcript = event.results[0][0].transcript
       }
 
       recognition.onerror = (event) => {
         console.error('Transcription error:', event.error)
         setError('Could not transcribe audio. Please try again.')
-      }
-
-      recognition.onend = () => {
         setIsTranscribing(false)
       }
 
-      // Start recognition
+      recognition.onend = () => {
+        if (transcript) {
+          const updatedRecordings = recordings.map(rec => {
+            if (rec.id === recording.id) {
+              return { ...rec, transcript }
+            }
+            return rec
+          })
+          setRecordings(updatedRecordings)
+          localStorage.setItem('recordings', JSON.stringify(updatedRecordings))
+        }
+        setIsTranscribing(false)
+      }
+
+      // Play the audio for transcription
+      const audio = new Audio(recording.url)
+      audio.play()
       recognition.start()
+
+      audio.onended = () => {
+        recognition.stop()
+        audio.remove()
+      }
     } catch (err) {
       console.error('Transcription error:', err)
       setError('Speech recognition is not supported in this browser.')
@@ -101,8 +120,6 @@ export default function VoiceRecorder() {
         mimeType = 'audio/mp4'
       } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
         mimeType = 'audio/webm;codecs=opus'
-      } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
-        mimeType = 'audio/ogg;codecs=opus'
       }
 
       options = {
@@ -208,13 +225,17 @@ export default function VoiceRecorder() {
                 {format(new Date(recording.date), 'MMM d, yyyy h:mm a')}
               </span>
               <div className="flex gap-2">
-                <button
-                  onClick={() => transcribeAudio(recording)}
-                  className="text-blue-500 hover:text-blue-600 p-1"
-                  disabled={isTranscribing}
-                >
-                  <FaFileAlt size={16} />
-                </button>
+                {!recording.transcript && (
+                  <button
+                    onClick={() => transcribeAudio(recording)}
+                    className={`text-blue-500 hover:text-blue-600 p-1 ${
+                      isTranscribing ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    disabled={isTranscribing}
+                  >
+                    <FaFileAlt size={16} />
+                  </button>
+                )}
                 <button
                   onClick={() => deleteRecording(recording.id)}
                   className="text-red-500 hover:text-red-600 p-1"
