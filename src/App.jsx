@@ -1,11 +1,10 @@
 import React, { useState } from 'react'
-import VoiceRecorder from './components/VoiceRecorder'
-import NotesList from './components/NotesList'
+import NotesHistory from './components/NotesHistory'
 import KnowledgeBase from './components/KnowledgeBase'
-import { FaMicrophone, FaEdit, FaBook } from 'react-icons/fa'
+import { FaHistory, FaBook } from 'react-icons/fa'
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('voice')
+  const [activeTab, setActiveTab] = useState('history')
 
   return (
     <div className="max-w-md mx-auto p-4 min-h-screen bg-white">
@@ -13,12 +12,12 @@ export default function App() {
       
       <div className="flex justify-around mb-6">
         <button
-          onClick={() => setActiveTab('voice')}
+          onClick={() => setActiveTab('history')}
           className={`flex items-center px-4 py-2 rounded ${
-            activeTab === 'voice' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+            activeTab === 'history' ? 'bg-blue-500 text-white' : 'bg-gray-200'
           }`}
         >
-          <FaMicrophone className="mr-2" /> History
+          <FaHistory className="mr-2" /> History
         </button>
         <button
           onClick={() => setActiveTab('knowledge')}
@@ -28,19 +27,10 @@ export default function App() {
         >
           <FaBook className="mr-2" /> Knowledge Base
         </button>
-        <button
-          onClick={() => setActiveTab('notes')}
-          className={`flex items-center px-4 py-2 rounded ${
-            activeTab === 'notes' ? 'bg-blue-500 text-white' : 'bg-gray-200'
-          }`}
-        >
-          <FaEdit className="mr-2" /> Notes
-        </button>
       </div>
 
-      {activeTab === 'voice' && <VoiceRecorder />}
+      {activeTab === 'history' && <NotesHistory />}
       {activeTab === 'knowledge' && <KnowledgeBase />}
-      {activeTab === 'notes' && <NotesList />}
     </div>
   )
 }
