@@ -1,57 +1,26 @@
-import React, { useState, useEffect } from 'react'
-import NotesHistory from './components/NotesHistory'
-import KnowledgeBase from './components/KnowledgeBase'
-import { FaHistory, FaBook } from 'react-icons/fa'
-
-export default function App() {
-  const [activeTab, setActiveTab] = useState('history')
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    // Simulate checking if the app is ready
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [])
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    )
+{
+  "name": "voice-notes-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-icons": "^4.10.1",
+    "date-fns": "^2.30.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@vitejs/plugin-react": "^4.0.3",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.27",
+    "tailwindcss": "^3.3.3",
+    "vite": "^4.4.5"
   }
-
-  return (
-    <div className="max-w-md mx-auto p-4 min-h-screen bg-white">
-      <h1 className="text-2xl font-bold text-center mb-6">Voice Notes</h1>
-      
-      <div className="flex justify-around mb-6">
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`flex items-center px-4 py-2 rounded ${
-            activeTab === 'history' ? 'bg-blue-500 text-white' : 'bg-gray-200'
-          }`}
-        >
-          <FaHistory className="mr-2" /> History
-        </button>
-        <button
-          onClick={() => setActiveTab('knowledge')}
-          className={`flex items-center px-4 py-2 rounded ${
-            activeTab === 'knowledge' ? 'bg-blue-500 text-white' : 'bg-gray-200'
-          }`}
-        >
-          <FaBook className="mr-2" /> Knowledge Base
-        </button>
-      </div>
-
-      {activeTab === 'history' && <NotesHistory />}
-      {activeTab === 'knowledge' && <KnowledgeBase />}
-    </div>
-  )
 }
