@@ -1,0 +1,14 @@
+├── index.html
+├── package.json
+├── vite.config.js
+├── postcss.config.js
+├── tailwind.config.js
+├── netlify.toml
+├── src/
+│   ├── main.jsx
+│   ├── App.jsx
+│   ├── index.css
+│   └── components/
+│       ├── VoiceRecorder.jsx
+│       ├── NotesList.jsx
+│       └── QRCodeDisplay.jsx
