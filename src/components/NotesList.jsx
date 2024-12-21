@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { FaSave, FaTrash } from 'react-icons/fa'
-import { format } from 'date-fns'
+import { FaSave, FaPaperPlane } from 'react-icons/fa'
 
 export default function NotesList() {
   const [notes, setNotes] = useState([])
@@ -13,68 +12,69 @@ export default function NotesList() {
     }
   }, [])
 
+  const categorizeNote = (text) => {
+    const keywords = {
+      task: ['todo', 'task', 'remember', 'deadline'],
+      idea: ['idea', 'concept', 'think', 'maybe'],
+      personal: ['me', 'my', 'I', 'mine'],
+    }
+
+    const lowercaseText = text.toLowerCase()
+    for (const [category, words] of Object.entries(keywords)) {
+      if (words.some(word => lowercaseText.includes(word))) {
+        return category
+      }
+    }
+    return 'general'
+  }
+
   const saveNote = () => {
     if (newNote.trim()) {
       const note = {
         id: Date.now(),
         text: newNote,
         date: new Date().toISOString(),
-        category: 'note'
+        category: categorizeNote(newNote)
       }
-      const updatedNotes = [note, ...notes]
+      const updatedNotes = [...notes, note]
       setNotes(updatedNotes)
       localStorage.setItem('notes', JSON.stringify(updatedNotes))
       setNewNote('')
     }
   }
 
-  const deleteNote = (id) => {
-    const updatedNotes = notes.filter(note => note.id !== id)
-    setNotes(updatedNotes)
-    localStorage.setItem('notes', JSON.stringify(updatedNotes))
-  }
-
   return (
     <div>
-      <div className="mb-6">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4">
         <textarea
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
-          className="w-full p-3 border rounded-lg resize-none"
-          rows="4"
+          className="w-full p-3 border rounded-lg resize-none bg-gray-50"
+          rows="3"
           placeholder="Type your note here..."
         />
         <button
           onClick={saveNote}
-          className="mt-2 bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center"
+          className="mt-2 bg-blue-500 text-white px-6 py-3 rounded-full flex items-center justify-center w-full shadow-md"
         >
-          <FaSave className="mr-2" /> Save Note
+          <FaPaperPlane className="mr-2" /> Send Note
         </button>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 mb-48">
         {notes.map((note) => (
-          <div key={note.id} className="border p-4 rounded-lg">
+          <div key={note.id} className="bg-white rounded-lg shadow-sm border p-4">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-gray-500">
-                {format(new Date(note.date), 'MMM d, yyyy h:mm a')}
+                {new Date(note.date).toLocaleDateString()}
               </span>
-              <button
-                onClick={() => deleteNote(note.id)}
-                className="text-red-500 hover:text-red-600 p-1"
-              >
-                <FaTrash size={16} />
-              </button>
+              <span className="text-xs font-medium px-2 py-1 bg-blue-100 text-blue-600 rounded-full">
+                {note.category}
+              </span>
             </div>
-            <p className="text-gray-700">{note.text}</p>
+            <p className="text-gray-700 break-words">{note.text}</p>
           </div>
         ))}
-
-        {notes.length === 0 && (
-          <div className="text-center text-gray-500 mt-8">
-            No notes yet. Type something and save to create a note.
-          </div>
-        )}
       </div>
     </div>
   )
