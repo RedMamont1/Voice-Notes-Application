@@ -1,19 +1,30 @@
 import React, { useState, useEffect } from 'react'
 import NotesHistory from './components/NotesHistory'
 import KnowledgeBase from './components/KnowledgeBase'
+import Auth from './components/Auth'
 import { FaHistory, FaBook } from 'react-icons/fa'
+import { supabase } from './lib/supabase'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('history')
   const [isLoading, setIsLoading] = useState(true)
+  const [session, setSession] = useState(null)
 
   useEffect(() => {
-    // Simulate checking if the app is ready
-    const timer = setTimeout(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
       setIsLoading(false)
-    }, 500)
+    })
 
-    return () => clearTimeout(timer)
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   if (isLoading) {
@@ -27,9 +38,21 @@ export default function App() {
     )
   }
 
+  if (!session) {
+    return <Auth />
+  }
+
   return (
     <div className="max-w-md mx-auto p-4 min-h-screen bg-white">
-      <h1 className="text-2xl font-bold text-center mb-6">Voice Notes</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Voice Notes</h1>
+        <button
+          onClick={() => supabase.auth.signOut()}
+          className="text-sm text-gray-600 hover:text-gray-800"
+        >
+          Sign Out
+        </button>
+      </div>
       
       <div className="flex justify-around mb-6">
         <button
@@ -50,8 +73,8 @@ export default function App() {
         </button>
       </div>
 
-      {activeTab === 'history' && <NotesHistory />}
-      {activeTab === 'knowledge' && <KnowledgeBase />}
+      {activeTab === 'history' && <NotesHistory userId={session.user.id} />}
+      {activeTab === 'knowledge' && <KnowledgeBase userId={session.user.id} />}
     </div>
   )
 }
